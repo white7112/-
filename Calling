@@ -1,0 +1,33 @@
+import joblib
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+
+# 1. result 폴더에서 모델 불러오기
+lr = joblib.load("./result/lr_model.pkl")
+rf = joblib.load("./result/rf_model.pkl")
+
+# 2. 데이터 로드 및 전처리
+df = pd.read_csv("./data/vanet_traffic_data.csv")
+X = df.drop(columns=['label'])
+for col in X.select_dtypes(include=['object', 'string']).columns:
+    X[col] = LabelEncoder().fit_transform(X[col])
+X = X.fillna(0)
+
+# 3. 샘플 데이터 10개 추출
+X_sample = X.head(10)
+
+# 4. 확률 예측값 비교
+lr_prob = lr.predict_proba(X_sample)
+rf_prob = rf.predict_proba(X_sample)
+
+print(f"{'No.':<5} | {'Logistic Regression (Class 1 확률)':<35} | {'Random Forest (Class 1 확률)':<35}")
+print("-" * 95)
+
+for i in range(10):
+    lr_p = lr_prob[i][1]
+    rf_p = rf_prob[i][1]
+    print(f"{i+1:<5} | {lr_p:<35.6f} | {rf_p:<35.6f}")
+
+print("\n[해설]")
+print("- 숫자가 1.0에 가까우면 모델이 해당 결과를 강하게 확신하는 것입니다.")
+print("- 모델마다 확신도가 다른 것은 학습 논리(수학적 모델 vs 다수결)의 차이 때문입니다.")
