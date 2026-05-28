@@ -40,8 +40,7 @@ def get_prepared_data(data_path, target_col="label"):
         X[col] = X[col].fillna(median_val)
 
     # 글자(범주형) 데이터는 숫자가 아니라서 더하거나 나눌 수 없어 평균을 낼 수 없음
-    # 그래서 데이터 중 가장 흔하게 등장한 '최빈값'(가장 빈도가 높은 글자)을 채워 넣는 것이 
-    # 통계학적으로 데이터의 본질을 헤치지 않을 것으로 예측.
+    # 그래서 데이터 중 가장 흔하게 등장한 '최빈값'(가장 빈도가 높은 글자)을 채워 넣는 것이 통계학적으로 데이터의 본질을 헤치지 않을 것으로 예측.
     for col in categorical_cols:
         mode_series = X[col].mode()
         if not mode_series.empty:
@@ -58,12 +57,17 @@ def get_prepared_data(data_path, target_col="label"):
         X[col] = le.fit_transform(X[col].astype(str))
         feature_encoders[col] = le
 
-    
+    # 1. 타겟 데이터 라벨 인코딩
+    # 분류 모델 학습을 위해 문자열 형태의 타겟 데이터를 숫자형(0, 1, ...)으로 변환합니다.
     le_y = LabelEncoder()
     y_encoded = le_y.fit_transform(y.astype(str))
 
+    # 2. 피처 데이터 타입 변환
+    # 모든 입력 피처를 학습에 적합한 실수(float) 형태로 통일합니다.
     X = X.astype(float)
 
+    # 3. 데이터셋 분할 (학습/테스트)
+    # stratify 옵션을 사용하여 클래스 비율이 학습/테스트 데이터셋에서 일정하게 유지되도록 합니다.
     X_train, X_test, y_train, y_test = train_test_split(
         X, y_encoded,
         test_size=TEST_SIZE,
@@ -71,10 +75,14 @@ def get_prepared_data(data_path, target_col="label"):
         stratify=y_encoded,
     )
 
+    # 4. 데이터 스케일링 (표준화)
+    # 각 피처의 평균을 0, 표준편차를 1로 조정하여 모델의 학습 속도와 성능을 최적화합니다.
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
 
+    # 5. 전처리 객체 저장 (배포 준비)
+    # 스케일러와 인코더는 추후 실시간 데이터 예측 시 동일하게 적용되어야 하므로 파일로 저장합니다.
     os.makedirs(RESULT_DIR, exist_ok=True)
     joblib.dump(scaler, f"{RESULT_DIR}/scaler.pkl")
     joblib.dump(le_y, f"{RESULT_DIR}/label_encoder_y.pkl")
@@ -83,8 +91,14 @@ def get_prepared_data(data_path, target_col="label"):
     return X_train_scaled, X_test_scaled, y_train, y_test
 
 def get_class_names(data_path="./data/vanet_traffic_data.csv", target_col="label"):
+    
+    # 저장된 라벨 인코더를 로드하여 클래스 이름(라벨) 목록을 반환합니다.
+    # 인코더 파일이 없다면 전처리를 먼저 수행하여 생성합니다.
+    
     encoder_path = f"{RESULT_DIR}/label_encoder_y.pkl"
     if not os.path.exists(encoder_path):
         get_prepared_data(data_path, target_col)
+    
+    # 저장된 라벨 인코더 로드
     le_y = joblib.load(encoder_path)
     return list(le_y.classes_)
